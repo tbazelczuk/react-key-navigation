@@ -2,6 +2,10 @@ import React from 'react';
 import Focusable from './Focusable.jsx';
 
 class HorizontalList extends Focusable {
+  isContainer() {
+    return true;
+  }
+
   getNextFocus(direction, focusedIndex) {
     const remainInFocus = this.props.remainInFocus ? this.props.remainInFocus : false;
 
@@ -23,14 +27,19 @@ class HorizontalList extends Focusable {
     }
 
     if (nextFocus.isContainer()) {
-      return nextFocus.getDefaultFocus();
+      if (nextFocus.hasChildren()) {
+        return nextFocus.getDefaultFocus();
+      }
+      else {
+        return this.getNextFocus(direction, nextFocus.indexInParent);
+      }
     }
 
     return nextFocus;
   }
 
   render() {
-    const { focusId, navDefault, onFocus, onBlur, onEnterDown, ...props } = this.props;
+    const { focusId, rootNode, navDefault, forceFocus, retainLastFocus, onFocus, onBlur, onEnterDown, ...props } = this.props;
     return <div {...props} />
   }
 }

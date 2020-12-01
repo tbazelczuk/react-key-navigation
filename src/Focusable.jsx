@@ -7,12 +7,22 @@ class Focusable extends Component {
   indexInParent = 0;
   focusableId = null;
   lastFocusChild = null;
+  updateChildrenOrder = false;
+  updateChildrenOrderNum = 0;
+
+  state = {
+    focusTo: null
+  }
 
   constructor(props, context) {
     super(props, context);
   }
 
   isContainer() {
+    return false;
+  }
+  
+  hasChildren() {
     return this.children.length > 0;
   }
 
@@ -27,18 +37,15 @@ class Focusable extends Component {
 
   removeChild(child) {
     this.context.navigationComponent.removeFocusableId(child.focusableId);
-    this.children.splice(child.indexInParent, 1);
-
-    for (let i = child.indexInParent; i < this.children.length; ++i) {
-      this.children[i].indexInParent -= 1;
-    }
 
     const currentFocusedPath = this.context.navigationComponent.currentFocusedPath;
+    if(!currentFocusedPath){
+      return
+    }
     const index = currentFocusedPath.indexOf(child);
 
-    if (index >= 0) {
-      const next = currentFocusedPath[index - 1].getDefaultFocus();
-      this.context.navigationComponent.focus(next);
+    if (index > 0) {
+      this.setState({ focusTo: currentFocusedPath[index - 1] })
     }
   }
 
@@ -63,8 +70,13 @@ class Focusable extends Component {
   }
 
   getDefaultFocus() {
-    if (this.isContainer())
-      return this.children[this.getDefaultChild()].getDefaultFocus();
+    if (this.isContainer()) {
+      if (this.hasChildren()) {
+        return this.children[this.getDefaultChild()].getDefaultFocus();
+      }
+      
+      return null;
+    }
 
     return this;
   }
@@ -118,6 +130,8 @@ class Focusable extends Component {
   }
 
   componentDidMount() {
+    this.focusableId = this.context.navigationComponent.addComponent(this, this.props.focusId);
+    
     if (this.context.parentFocusable) {
       this.buildTreePath();
       this.indexInParent = this.getParent().addChild(this);
@@ -130,18 +144,43 @@ class Focusable extends Component {
     if (this.props.forceFocus) {
       this.context.navigationComponent.focus(this);
     }
-
-    this.focusableId = this.context.navigationComponent.addComponent(this, this.props.focusId);
   }
 
   componentWillUnmount() {
     if (this.context.parentFocusable) {
       this.getParent().removeChild(this);
     }
+    
+    this.focusableId = null;
+  }
+
+  componentDidUpdate() {
+    const parent = this.getParent();
+    if (parent && parent.updateChildrenOrder) {
+      if (parent.updateChildrenOrderNum === 0) {
+        parent.children = [];
+      }
+
+      parent.updateChildrenOrderNum++;
+      this.indexInParent = parent.addChild(this);
+    }
+
+    if (this.state.focusTo !== null) {
+      this.context.navigationComponent.focus(this.state.focusTo.getDefaultFocus());
+      this.setState({ focusTo: null });
+    }
+    
+    this.updateChildrenOrder = false;
   }
 
   render() {
-    const { focusId, navDefault, onFocus, onBlur, onEnterDown, ...props } = this.props;
+    const { focusId, rootNode, navDefault, forceFocus, retainLastFocus, onFocus, onBlur, onEnterDown, ...props } = this.props;
+
+    if (this.children.length > 0) {
+      this.updateChildrenOrder = true;
+      this.updateChildrenOrderNum = 0;
+    }
+
     return <span {...props} />
   }
 }
